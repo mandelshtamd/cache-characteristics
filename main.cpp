@@ -8,26 +8,22 @@
 const int MEMORY_SIZE = 1024 * 1024 * 1024;
 char *memoryBlock;
 
-int measureTime(int stride, int span) {
-    char **currentPointer;
+int measureTime(long long stride, int span) {
+    volatile char **currentPointer = (volatile char **)(&memoryBlock[0]);
 
-    for (int index = (span - 1) * stride; index >= 0; index -= stride) {
-        char *nextPointer;
-        currentPointer = reinterpret_cast<char **>(&memoryBlock[index]);
-        if (index >= stride) {
-            nextPointer = &memoryBlock[index - stride];
-        } else {
-            nextPointer = &memoryBlock[(span - 1) * stride];
-        }
-        *currentPointer = nextPointer;
+    for (long long index = (span - 1) * stride; index >= 0; index -= stride) {
+        currentPointer = (volatile char **)(&memoryBlock[index]);
+        *currentPointer = (index >= stride) ? &memoryBlock[index - stride] : &memoryBlock[(span - 1) * stride];
+        asm volatile("" ::: "memory");
     }
     std::vector<long long> timingResults;
 
     for (int i = 0; i < 20; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         for (int j = 0; j < 1000000; ++j) {
-            currentPointer = reinterpret_cast<char **>(*currentPointer);
+            currentPointer = (volatile char **)(*currentPointer);
         }
+        asm volatile("" ::: "memory");
         auto end = std::chrono::high_resolution_clock::now();
         timingResults.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }
@@ -38,7 +34,12 @@ int measureTime(int stride, int span) {
 int main() {
 
     memoryBlock = new char[MEMORY_SIZE];
-    int stride = 16;
+    if (!memoryBlock) {
+        std::cerr << "Memory allocation failed." << std::endl;
+        return 1;
+    }
+
+    long long stride = 16;
     std::vector<std::set<int>> jumpSizes;
 
     for (; stride < MEMORY_SIZE / 16; stride *= 2) {
