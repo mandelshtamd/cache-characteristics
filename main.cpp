@@ -5,8 +5,8 @@
 #include <set>
 #include <algorithm>
 
-const int MEMORY_SIZE = 1024 * 1024 * 1024;
-char *memoryBlock;
+static const int MEMORY_SIZE = 1024 * 1024 * 1024;
+static char *memoryBlock;
 
 int measureTime(long long stride, int span) {
     volatile char **currentPointer = (volatile char **)(&memoryBlock[0]);
@@ -32,12 +32,7 @@ int measureTime(long long stride, int span) {
 
 
 int main() {
-
     memoryBlock = new char[MEMORY_SIZE];
-    if (!memoryBlock) {
-        std::cerr << "Memory allocation failed." << std::endl;
-        return 1;
-    }
 
     long long stride = 16;
     std::vector<std::set<int>> jumpSizes;
